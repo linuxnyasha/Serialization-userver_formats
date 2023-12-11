@@ -4,6 +4,8 @@
 
 
 namespace UniversalSerializeLibrary {
+  template <String Pattern>
+  const static userver::utils::regex kRegex(Pattern);
   template <auto Value>
   struct Min {
     static constexpr auto kValue = Value;
@@ -41,7 +43,7 @@ namespace UniversalSerializeLibrary {
 
   template <String Regex>
   constexpr inline auto Check(const std::string& field, Pattern<Regex>) noexcept {
-    return userver::utils::regex_match(field, userver::utils::regex(Regex));
+    return userver::utils::regex_match(field, kRegex<Regex>);
   };
 
   template <typename Field, auto Value>
