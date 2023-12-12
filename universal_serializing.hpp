@@ -222,10 +222,10 @@ namespace UniversalSerializeLibrary {
       };
     };
 
-    template <typename T, auto I, typename... Params>
+    template <typename T, auto I, typename Builder, typename... Params>
     constexpr inline auto UniversalSerializeField(
          FieldParametries<T, I, Params...>
-        ,userver::formats::json::ValueBuilder& builder
+        ,Builder& builder
         ,const T& obj) {
       const auto& value = boost::pfr::get<I>(obj);
       using exam::RunCheckFor;
