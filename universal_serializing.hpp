@@ -359,40 +359,26 @@ namespace UniversalSerializeLibrary {
 
 
 };
-namespace userver::formats::json {
-  template <typename T
-  ,std::enable_if_t<!std::is_same_v<
-       decltype(UniversalSerializeLibrary::kDeserialization<std::remove_cvref_t<T>>)
-      ,const UniversalSerializeLibrary::detail::Disabled>, std::nullptr_t> = nullptr>
-  inline T Parse(const userver::formats::json::Value& json,
-      userver::formats::parse::To<T> to) {
-    return UniversalSerializeLibrary::UniversalParse(json, to);
-  };
-  template <typename T
+namespace userver::formats::serialize {
+
+  template <typename T, typename Format
   ,std::enable_if_t<!std::is_same_v<
        decltype(UniversalSerializeLibrary::kSerialization<std::remove_cvref_t<T>>)
       ,const UniversalSerializeLibrary::detail::Disabled>, std::nullptr_t> = nullptr>
-  inline userver::formats::json::Value Serialize(const T& obj,
-      userver::formats::serialize::To<userver::formats::json::Value> to) {
+  inline Format Serialize(const T& obj,
+      userver::formats::serialize::To<Format> to) {
     return UniversalSerializeLibrary::UniversalSerialize(obj, to);
   };
 };
-namespace userver::formats::json {
-  template <typename T
+
+namespace userver::formats::parse {
+  template <typename T, typename Format
   ,std::enable_if_t<!std::is_same_v<
        decltype(UniversalSerializeLibrary::kDeserialization<std::remove_cvref_t<T>>)
       ,const UniversalSerializeLibrary::detail::Disabled>, std::nullptr_t> = nullptr>
-  inline T Parse(const userver::formats::yaml::Value& json,
+  inline T Parse(const Format& from,
       userver::formats::parse::To<T> to) {
-    return UniversalSerializeLibrary::UniversalParse(json, to);
-  };
-  template <typename T
-  ,std::enable_if_t<!std::is_same_v<
-       decltype(UniversalSerializeLibrary::kSerialization<std::remove_cvref_t<T>>)
-      ,const UniversalSerializeLibrary::detail::Disabled>, std::nullptr_t> = nullptr>
-  inline userver::formats::yaml::Value Serialize(const T& obj,
-      userver::formats::serialize::To<userver::formats::yaml::Value> to) {
-    return UniversalSerializeLibrary::UniversalSerialize(obj, to);
+    return UniversalSerializeLibrary::UniversalParse(from, to);
   };
 };
 
