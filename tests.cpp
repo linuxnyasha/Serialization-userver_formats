@@ -14,16 +14,14 @@ inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct> =
     UniversalSerializeLibrary::SerializationConfig<SomeStruct>::Create();
 
 UTEST(Serialize, Basic) {
-  using UniversalSerializeLibrary::UniversalSerialize;
   SomeStruct a{10, 100};
-  const auto json = UniversalSerialize(a, userver::formats::serialize::To<userver::formats::json::Value>{});
+  const auto json = userver::formats::json::ValueBuilder(a).ExtractValue();
   EXPECT_EQ(userver::formats::json::ToString(json), "{\"field1\":10,\"field2\":100}");
 };
 
 UTEST(Parse, Basic) {
-  using UniversalSerializeLibrary::UniversalParse;
   const auto json = userver::formats::json::FromString("{\"field1\":10,\"field2\":100}");
-  const auto fromJson = UniversalParse(json, userver::formats::parse::To<SomeStruct>{});
+  const auto fromJson = json.As<SomeStruct>();
   constexpr SomeStruct valid{10, 100};
   EXPECT_EQ(fromJson, valid);
 };
@@ -55,14 +53,14 @@ inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct2> =
 UTEST(Serialize, Optional) {
   using UniversalSerializeLibrary::UniversalSerialize;
   SomeStruct2 a{{}, 100, {}};
-  const auto json = UniversalSerialize(a, userver::formats::serialize::To<userver::formats::json::Value>{});
+  const auto json = userver::formats::json::ValueBuilder(a).ExtractValue();
   EXPECT_EQ(json, userver::formats::json::FromString("{\"field1\":114,\"field2\":100}"));
 };
 UTEST(Parse, Optional) {
   using UniversalSerializeLibrary::UniversalParse;
   constexpr SomeStruct2 valid{{114}, {}, {}};
   const auto json = userver::formats::json::FromString("{}");
-  EXPECT_EQ(UniversalParse(json, userver::formats::parse::To<SomeStruct2>{}), valid);
+  EXPECT_EQ(json.As<SomeStruct2>(), valid);
 };
 UTEST(Valid, Optional) {
   using UniversalSerializeLibrary::UniversalValid;
@@ -82,12 +80,11 @@ inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct3> =
     .With<"field">(Configurator<Additional>{});
 
 UTEST(Serialize, Additional) {
-  using UniversalSerializeLibrary::UniversalSerialize;
   std::unordered_map<std::string, int> value;
   value["data1"] = 1;
   value["data2"] = 2;
   SomeStruct3 a{value};
-  const auto json = UniversalSerialize(a, userver::formats::serialize::To<userver::formats::json::Value>{});
+  const auto json = userver::formats::json::ValueBuilder(a).ExtractValue();
   EXPECT_EQ(json, userver::formats::json::FromString("{\"data1\":1,\"data2\":2}"));
 };
 
@@ -98,7 +95,7 @@ UTEST(Parse, Additional) {
   value["data2"] = 2;
   SomeStruct3 valid{value};
   const auto json = userver::formats::json::FromString("{\"data1\":1,\"data2\":2}");
-  const auto fromJson = UniversalParse(json, userver::formats::parse::To<SomeStruct3>{});
+  const auto fromJson = json.As<SomeStruct3>();
   EXPECT_EQ(valid, fromJson);
 };
 
