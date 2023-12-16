@@ -247,15 +247,22 @@ namespace UniversalSerializeLibrary {
     };
 
     template <typename T, auto I, typename Format, typename... Params>
-    constexpr inline auto UniversalValidField(
+    constexpr inline std::optional<std::remove_cvref_t<decltype(boost::pfr::get<I>(std::declval<T>()))>>
+    UniversalTryParseField(
          FieldParametries<T, I, Params...>
         ,Format&& from) noexcept {
       using FieldType = std::remove_cvref_t<decltype(boost::pfr::get<I>(std::declval<T>()))>;
       using exam::HasCheck;
       using exam::Check;
       using exam::RunRead;
-      return HasCheck<T, I, Params...>(from, userver::formats::parse::To<FieldType>{})
-        && (Check(RunRead<T, I, Params...>(from, userver::formats::parse::To<FieldType>{}), Params{}) && ...);
+
+      if(HasCheck<T, I, Params...>(from, userver::formats::parse::To<FieldType>{}) ) {
+        auto val = RunRead<T, I, Params...>(from, userver::formats::parse::To<FieldType>{});
+        if((Check(val, Params{}) && ...)) {
+          return val;
+        };
+      };
+      return std::nullopt;
     };
 
 
@@ -362,12 +369,21 @@ namespace UniversalSerializeLibrary {
     }(Config{});
   };
   template <typename Format, typename T, std::enable_if_t<!std::is_same_v<decltype(kValidation<std::remove_cvref_t<T>>), const detail::Disabled>, std::nullptr_t> = nullptr>
-  inline bool UniversalValid(Format&& from,
+  inline std::optional<T> UniversalTryParse(Format&& from,
       userver::formats::parse::To<T>) {
     using Config = std::remove_const_t<decltype(kValidation<std::remove_cvref_t<T>>)>;
     using Type = std::remove_cvref_t<T>;
-    return [&]<typename... Params>(SerializationConfig<Type, Params...>){
-      return (detail::UniversalValidField(Params{}, from) && ...);
+    return [&]<typename... Params>(SerializationConfig<Type, Params...>) -> std::optional<T> {
+      auto fields = std::make_tuple(detail::UniversalTryParseField(Params{}, from)...);
+      constexpr auto fieldsCount = boost::pfr::tuple_size_v<T>;
+      if([&]<auto... I>(std::index_sequence<I...>){
+        return (std::get<I>(fields) && ...);
+      }(std::make_index_sequence<fieldsCount>())) {
+        return [&]<auto... I>(std::index_sequence<I...>){
+          return T{*std::get<I>(fields)...};
+        }(std::make_index_sequence<fieldsCount>());
+      };
+      return std::nullopt;
     }(Config{});
   };
 };
