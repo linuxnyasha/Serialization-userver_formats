@@ -299,6 +299,7 @@ namespace UniversalSerializeLibrary {
         return SerializationConfig<T, Params...>();
       };
 
+
       template <std::size_t I, typename ConfigElement, typename... ConfigElements>
       consteval auto With(Configurator<ConfigElement, ConfigElements...>) const {
         return SerializationConfig<T, Params...>::AddParamTo<I, ConfigElement>().template With<I>(Configurator<ConfigElements...>());
@@ -308,7 +309,20 @@ namespace UniversalSerializeLibrary {
       consteval auto With(Configurator<ConfigElements...> config) const {
         return With<detail::find(boost::pfr::names_as_array<T>(), field)>(config);
       };
-
+      template <typename From, std::size_t I>
+      consteval auto FromStruct() {
+        if constexpr(I == boost::pfr::tuple_size_v<From>) {
+          return SerializationConfig<T, Params...>();
+        } else {
+          constexpr auto fieldName = boost::pfr::get_name<I, From>();
+          constexpr auto Index = detail::find(boost::pfr::names_as_array<T>(), fieldName);
+          return SerializationConfig<T, Params...>().With<Index>(boost::pfr::get<I>(From{})).template FromStruct<From, I + 1>();
+        };
+      };
+      template <typename From>
+      consteval auto FromStruct() {
+        return FromStruct<From, 0>();
+      };
       constexpr SerializationConfig() noexcept {
         static_assert(sizeof...(Params) == boost::pfr::tuple_size_v<T>, "Use Create");
       };
@@ -356,8 +370,6 @@ namespace UniversalSerializeLibrary {
       return (detail::UniversalValidField(Params{}, from) && ...);
     }(Config{});
   };
-
-
 };
 namespace userver::formats::serialize {
 

@@ -2,6 +2,7 @@
 #include "universal_serializing.hpp"
 #include "basic_checks.hpp"
 #include <userver/utils/regex.hpp>
+using namespace UniversalSerializeLibrary;
 struct SomeStruct {
   int field1;
   int field2;
@@ -9,9 +10,10 @@ struct SomeStruct {
     return (this->field1 == other.field1) && (this->field2 == other.field2);
   };
 };
+
 template <>
 inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct> =
-    UniversalSerializeLibrary::SerializationConfig<SomeStruct>::Create();
+    SerializationConfig<SomeStruct>::Create();
 
 UTEST(Serialize, Basic) {
   SomeStruct a{10, 100};
@@ -26,7 +28,6 @@ UTEST(Parse, Basic) {
   EXPECT_EQ(fromJson, valid);
 };
 UTEST(Valid, Basic) {
-  using UniversalSerializeLibrary::UniversalValid;
   const auto json = userver::formats::json::FromString("{\"field1\":10,\"field2\":100}");
   const auto json2 = userver::formats::json::FromString("{\"field1\":10,\"field3\":100}");
   const auto json3 = userver::formats::json::FromString("{\"field1\":10,\"field2\":\"100\"}");
@@ -51,19 +52,16 @@ inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct2> =
 
 
 UTEST(Serialize, Optional) {
-  using UniversalSerializeLibrary::UniversalSerialize;
   SomeStruct2 a{{}, 100, {}};
   const auto json = userver::formats::json::ValueBuilder(a).ExtractValue();
   EXPECT_EQ(json, userver::formats::json::FromString("{\"field1\":114,\"field2\":100}"));
 };
 UTEST(Parse, Optional) {
-  using UniversalSerializeLibrary::UniversalParse;
   constexpr SomeStruct2 valid{{114}, {}, {}};
   const auto json = userver::formats::json::FromString("{}");
   EXPECT_EQ(json.As<SomeStruct2>(), valid);
 };
 UTEST(Valid, Optional) {
-  using UniversalSerializeLibrary::UniversalValid;
   const auto json = userver::formats::json::FromString("{}");
   EXPECT_EQ(UniversalValid(json, userver::formats::parse::To<SomeStruct2>{}), true);
 };
@@ -74,10 +72,14 @@ struct SomeStruct3 {
     return this->field == other.field;
   };
 };
+
+struct SomeStruct3Description {
+  Configurator<Additional> field;
+};
 template <>
 inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct3> =
     UniversalSerializeLibrary::SerializationConfig<SomeStruct3>::Create()
-    .With<"field">(Configurator<Additional>{});
+    .FromStruct<SomeStruct3Description>();
 
 UTEST(Serialize, Additional) {
   std::unordered_map<std::string, int> value;
@@ -89,7 +91,6 @@ UTEST(Serialize, Additional) {
 };
 
 UTEST(Parse, Additional) {
-  using UniversalSerializeLibrary::UniversalParse;
   std::unordered_map<std::string, int> value;
   value["data1"] = 1;
   value["data2"] = 2;
@@ -100,7 +101,6 @@ UTEST(Parse, Additional) {
 };
 
 UTEST(Valid, Additional) {
-  using UniversalSerializeLibrary::UniversalValid;
   const auto json = userver::formats::json::FromString("{\"data1\":1,\"data2\":2}");
   EXPECT_EQ(UniversalValid(json, userver::formats::parse::To<SomeStruct3>{}), true);
 };
@@ -111,14 +111,13 @@ struct SomeStruct4 {
 
 template <>
 inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct4> =
-    UniversalSerializeLibrary::SerializationConfig<SomeStruct4>::Create()
+    SerializationConfig<SomeStruct4>::Create()
     .With<"field">(Configurator<Max<120>, Min<10>>{});
 
 
 
 
 UTEST(Valid, MinMax) {
-  using UniversalSerializeLibrary::UniversalValid;
   const auto json = userver::formats::json::FromString("{\"field\":1}");
   const auto json2 = userver::formats::json::FromString("{\"field\":11}");
   const auto json3 = userver::formats::json::FromString("{\"field\":121}");
@@ -135,11 +134,10 @@ struct SomeStruct5 {
 
 template <>
 inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct5> =
-    UniversalSerializeLibrary::SerializationConfig<SomeStruct5>::Create()
+    SerializationConfig<SomeStruct5>::Create()
     .With<"field">(Configurator<Pattern<"^[0-9]+$">>());
 
 UTEST(Valid, Pattern) {
-  using UniversalSerializeLibrary::UniversalValid;
   const auto json = userver::formats::json::FromString(R"({"field":"1234412"})");
   const auto json2 = userver::formats::json::FromString(R"({"field":"abcdefgh"})");
   EXPECT_EQ(UniversalValid(json, userver::formats::parse::To<SomeStruct5>{}), true);
