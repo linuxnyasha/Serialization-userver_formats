@@ -158,20 +158,22 @@ namespace UniversalSerializeLibrary {
       constexpr inline auto HasCheck(const Format&, userver::formats::parse::To<std::optional<Field>>) {
         return true;
       };
+      template <typename T, auto I, typename... Params, typename From, typename Value>
+      constexpr inline
+      std::enable_if_t<find<Additional>(TypeList<Params...>{}) != sizeof...(Params), bool>
+      HasCheck(const From&, userver::formats::parse::To<std::unordered_map<std::string, Value>>) {
+        return true;
+      };
 
       template <typename T, auto I, typename... Params, typename Value, typename Field>
       constexpr inline Field RunRead(const Value& value, userver::formats::parse::To<Field>) {
         return value[boost::pfr::get_name<I, T>()].template As<Field>();
       };
-      template <typename T, auto I, typename... Params, typename Value, typename Field>
-      constexpr inline std::optional<Field> RunRead(const Value& value, userver::formats::parse::To<std::optional<Field>>) {
-        if(HasCheck<T, I, Params...>(value, userver::formats::parse::To<Field>{})) {
-          return RunRead<T, I, Params...>(value, userver::formats::parse::To<Field>{});
-        };
-        return std::nullopt;
-      };
+
       template <typename T, auto I, typename... Params, typename From, typename Value>
-      constexpr inline auto RunRead(const From& value, userver::formats::parse::To<std::unordered_map<std::string, Value>>) {
+      constexpr inline
+      std::enable_if_t<find<Additional>(TypeList<Params...>{}) != sizeof...(Params), std::unordered_map<std::string, Value>>
+      RunRead(const From& value, userver::formats::parse::To<std::unordered_map<std::string, Value>>) {
         constexpr auto names = boost::pfr::names_as_array<T>();
         std::unordered_map<std::string, Value> result;
         for(const auto& [name, value] : userver::formats::common::Items(value)) {
@@ -180,6 +182,14 @@ namespace UniversalSerializeLibrary {
           };
         };
         return result;
+      };
+
+      template <typename T, auto I, typename... Params, typename Value, typename Field>
+      constexpr inline std::optional<Field> RunRead(const Value& value, userver::formats::parse::To<std::optional<Field>>) {
+        if(HasCheck<T, I, Params...>(value, userver::formats::parse::To<Field>{})) {
+          return RunRead<T, I, Params...>(value, userver::formats::parse::To<Field>{});
+        };
+        return std::nullopt;
       };
       template <typename T, auto I, typename Builder, typename Field, auto Value>
       constexpr inline auto RunCheckFor(Builder& builder, const std::optional<Field>& field, Default<Value>) {
@@ -256,11 +266,10 @@ namespace UniversalSerializeLibrary {
       using exam::Check;
       using exam::RunRead;
 
-      if(HasCheck<T, I, Params...>(from, userver::formats::parse::To<FieldType>{}) ) {
-        auto val = RunRead<T, I, Params...>(from, userver::formats::parse::To<FieldType>{});
-        if((Check(val, Params{}) && ...)) {
-          return val;
-        };
+
+      auto val = RunRead<T, I, Params...>(from, userver::formats::parse::To<std::optional<FieldType>>{});
+      if(val && (Check(*val, Params{}) && ...)) {
+        return val;
       };
       return std::nullopt;
     };
@@ -407,6 +416,14 @@ namespace userver::formats::parse {
   inline T Parse(const Format& from,
       userver::formats::parse::To<T> to) {
     return UniversalSerializeLibrary::UniversalParse(from, to);
+  };
+  template <typename T, typename Format
+  ,std::enable_if_t<!std::is_same_v<
+       decltype(UniversalSerializeLibrary::kDeserialization<std::remove_cvref_t<T>>)
+      ,const UniversalSerializeLibrary::detail::Disabled>, std::nullptr_t> = nullptr>
+  inline T TryParse(const Format& from,
+      userver::formats::parse::To<T> to) {
+    return UniversalSerializeLibrary::UniversalTryParse(from, to);
   };
 };
 
