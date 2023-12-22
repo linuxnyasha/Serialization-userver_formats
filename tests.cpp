@@ -1,8 +1,7 @@
 #include <userver/utest/utest.hpp>
-#include "universal_serializing.hpp"
 #include "basic_checks.hpp"
-#include <userver/utils/regex.hpp>
-using namespace UniversalSerializeLibrary;
+#include <userver/formats/json.hpp>
+
 struct SomeStruct {
   int field1;
   int field2;
@@ -12,7 +11,7 @@ struct SomeStruct {
 };
 
 template <>
-inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct> =
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct> =
     SerializationConfig<SomeStruct>::Create();
 
 UTEST(Serialize, Basic) {
@@ -32,9 +31,9 @@ UTEST(TryParse, Basic) {
   const auto json = userver::formats::json::FromString("{\"field1\":10,\"field2\":100}");
   const auto json2 = userver::formats::json::FromString("{\"field1\":10,\"field3\":100}");
   const auto json3 = userver::formats::json::FromString("{\"field1\":10,\"field2\":\"100\"}");
-  EXPECT_EQ((bool)UniversalTryParse(json, userver::formats::parse::To<SomeStruct>{}), true);
-  EXPECT_EQ((bool)UniversalTryParse(json2, userver::formats::parse::To<SomeStruct>{}), false);
-  EXPECT_EQ((bool)UniversalTryParse(json3, userver::formats::parse::To<SomeStruct>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct>{}), true);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json2, userver::formats::parse::To<SomeStruct>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json3, userver::formats::parse::To<SomeStruct>{}), false);
 };
 
 
@@ -48,9 +47,9 @@ struct SomeStruct2 {
 };
 
 template <>
-inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct2> =
-    UniversalSerializeLibrary::SerializationConfig<SomeStruct2>::Create()
-    .With<"field1">(Configurator<Default<114>>{});
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct2> =
+    SerializationConfig<SomeStruct2>::Create()
+    .With<"field1">(Default<114>);
 
 
 UTEST(Serialize, Optional) {
@@ -66,7 +65,8 @@ UTEST(Parse, Optional) {
 
 UTEST(TryParse, Optional) {
   const auto json = userver::formats::json::FromString("{}");
-  EXPECT_EQ((bool)UniversalTryParse(json, userver::formats::parse::To<SomeStruct2>{}), true);
+  constexpr SomeStruct2 valid{{114}, {}, {}};
+  EXPECT_EQ(userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct2>{}), valid);
 };
 
 
@@ -78,11 +78,11 @@ struct SomeStruct3 {
 };
 
 struct SomeStruct3Description {
-  Configurator<Additional> field;
+  decltype(userver::formats::universal::Additional) field;
 };
 template <>
-inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct3> =
-    UniversalSerializeLibrary::SerializationConfig<SomeStruct3>::Create()
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct3> =
+    SerializationConfig<SomeStruct3>::Create()
     .FromStruct<SomeStruct3Description>();
 
 UTEST(Serialize, Additional) {
@@ -106,7 +106,7 @@ UTEST(Parse, Additional) {
 
 UTEST(TryParse, Additional) {
   const auto json = userver::formats::json::FromString("{\"data1\":1,\"data2\":2}");
-  EXPECT_EQ((bool)UniversalTryParse(json, userver::formats::parse::To<SomeStruct3>{}), true);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct3>{}), true);
 };
 
 struct SomeStruct4 {
@@ -114,9 +114,9 @@ struct SomeStruct4 {
 };
 
 template <>
-inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct4> =
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct4> =
     SerializationConfig<SomeStruct4>::Create()
-    .With<"field">(Configurator<Max<120>, Min<10>>{});
+    .With<"field">(Max<120>, Min<10>);
 
 
 
@@ -126,9 +126,9 @@ UTEST(TryParse, MinMax) {
   const auto json2 = userver::formats::json::FromString("{\"field\":11}");
   const auto json3 = userver::formats::json::FromString("{\"field\":121}");
 
-  EXPECT_EQ((bool)UniversalTryParse(json, userver::formats::parse::To<SomeStruct4>{}), false);
-  EXPECT_EQ((bool)UniversalTryParse(json2, userver::formats::parse::To<SomeStruct4>{}), true);
-  EXPECT_EQ((bool)UniversalTryParse(json3, userver::formats::parse::To<SomeStruct4>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct4>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json2, userver::formats::parse::To<SomeStruct4>{}), true);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json3, userver::formats::parse::To<SomeStruct4>{}), false);
 };
 
 
@@ -138,13 +138,60 @@ struct SomeStruct5 {
 };
 
 template <>
-inline constexpr auto UniversalSerializeLibrary::kSerialization<SomeStruct5> =
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct5> =
     SerializationConfig<SomeStruct5>::Create()
-    .With<"field">(Configurator<Pattern<"^[0-9]+$">>());
+    .With<"field">(Pattern<"^[0-9]+$">);
 
 UTEST(TryParse, Pattern) {
   const auto json = userver::formats::json::FromString(R"({"field":"1234412"})");
   const auto json2 = userver::formats::json::FromString(R"({"field":"abcdefgh"})");
-  EXPECT_EQ((bool)UniversalTryParse(json, userver::formats::parse::To<SomeStruct5>{}), true);
-  EXPECT_EQ((bool)UniversalTryParse(json2, userver::formats::parse::To<SomeStruct5>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct5>{}), true);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json2, userver::formats::parse::To<SomeStruct5>{}), false);
+};
+
+
+
+UTEST(TryParse, null) {
+  const auto json = userver::formats::json::FromString("null");
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<std::optional<int>>{}), true);
+};
+
+struct SomeStruct6 {
+  std::vector<std::vector<int>> field;
+};
+
+template <>
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct6> =
+    SerializationConfig<SomeStruct6>::Create()
+    .With<"field">(MinItems<2>, Items<MinItems<1>, Items<Min<10>>>);
+
+UTEST(TryParse, Arrays) {
+  const auto json = userver::formats::json::FromString(R"({"field":[[10], [20]]})");
+  const auto json2 = userver::formats::json::FromString(R"({"field":[["10"], [20]]})");
+  const auto json3 = userver::formats::json::FromString(R"({"field":[[9], [20]]})");
+  const auto json4 = userver::formats::json::FromString(R"({"field":[[], []]})");
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json, userver::formats::parse::To<SomeStruct6>{}), true);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json2, userver::formats::parse::To<SomeStruct6>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json3, userver::formats::parse::To<SomeStruct6>{}), false);
+  EXPECT_EQ((bool)userver::formats::parse::TryParse(json4, userver::formats::parse::To<SomeStruct6>{}), false);
+};
+
+struct SomeStruct7  {
+  int value;
+  std::vector<SomeStruct7> children;
+  inline bool operator==(const SomeStruct7& other) const {
+    return this->value == other.value && this->children == other.children;
+  };
+};
+
+template <>
+inline constexpr auto userver::formats::universal::kSerialization<SomeStruct7> =
+    SerializationConfig<SomeStruct7>::Create();
+
+
+UTEST(Parse, Recursive) {
+  SomeStruct7 valid{1, {{2, {}}}};
+  const auto json = userver::formats::json::FromString(R"({"value":1,"children":[{"value":2,"children":[]}]})");
+  const auto fromJson = json.As<SomeStruct7>();
+  EXPECT_EQ(fromJson, valid);
 };
